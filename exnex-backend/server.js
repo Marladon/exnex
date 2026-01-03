@@ -1,10 +1,14 @@
 const express = require('express');
 const pool = require('./db');
 const authRoutes = require('./routes/auth');
+const adRoutes = require('./routes/ads');
+const categoryRoutes = require('./routes/categories');
 const app = express();
 const PORT = 3000;
 
 app.use(express.json());
+app.use('/api/ads', adRoutes);
+app.use('/api/categories', categoryRoutes);
 
 // Подключаем маршруты аутентификации
 app.use('/api/auth', authRoutes); 
