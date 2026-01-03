@@ -7,6 +7,7 @@ const app = express();
 const PORT = 3000;
 
 app.use(express.json());
+app.use(express.static('public'));
 app.use('/api/ads', adRoutes);
 app.use('/api/categories', categoryRoutes);
 
@@ -34,6 +35,16 @@ app.get('/api/test', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// Маршрут для главной страницы
+app.get('/home', (req, res) => {
+  res.sendFile(__dirname + '/public/index.html');
+});
+
+// Редирект с корня на /home
+app.get('/', (req, res) => {
+  res.redirect('/home');
 });
 
 app.listen(PORT, () => {

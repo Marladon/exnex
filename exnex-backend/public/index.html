@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>exnex</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        h1 { margin-bottom: 30px; color: #333; }
+        .section { margin-bottom: 40px; padding: 20px; border: 1px solid #ddd; border-radius: 8px; }
+        input, textarea, select { 
+            width: 100%; padding: 10px; margin: 10px 0; 
+            border: 1px solid #ccc; border-radius: 4px; 
+        }
+        button { 
+            padding: 10px 20px; background: #007bff; 
+            color: white; border: none; border-radius: 4px; 
+            cursor: pointer; 
+        }
+        button:hover { background: #0056b3; }
+        .ads-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+        .ad-card { border: 1px solid #ddd; padding: 15px; border-radius: 8px; }
+        .ad-price { color: #28a745; font-weight: bold; font-size: 1.2em; }
+        .error { color: red; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 Exnex - Доска объявлений</h1>
+        
+        <!-- Регистрация -->
+        <div class="section">
+            <h2>📝 Регистрация</h2>
+            <input type="email" id="regEmail" placeholder="Email">
+            <input type="password" id="regPassword" placeholder="Пароль">
+            <input type="text" id="regName" placeholder="Имя">
+            <button onclick="register()">Зарегистрироваться</button>
+            <div id="regResult" class="error"></div>
+        </div>
+
+        <!-- Создание объявления -->
+        <div class="section">
+            <h2>➕ Создать объявление</h2>
+            <input type="number" id="adUserId" placeholder="ID пользователя (из регистрации)">
+            <select id="adCategory">
+                <option value="">Выберите категорию...</option>
+            </select>
+            <input type="text" id="adTitle" placeholder="Заголовок">
+            <textarea id="adDescription" placeholder="Описание" rows="3"></textarea>
+            <input type="number" id="adPrice" placeholder="Цена">
+            <input type="text" id="adLocation" placeholder="Местоположение">
+            <button onclick="createAd()">Опубликовать</button>
+            <div id="adResult" class="error"></div>
+        </div>
+
+        <!-- Список объявлений -->
+        <div class="section">
+            <h2>📋 Все объявления</h2>
+            <button onclick="loadAds()">Обновить список</button>
+            <div id="adsContainer" class="ads-grid"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:3000/api';
+        let categories = [];
+
+        // Загрузка категорий при старте
+        async function loadCategories() {
+            try {
+                const res = await fetch(`${API_URL}/categories`);
+                const data = await res.json();
+                categories = data.categories;
+                const select = document.getElementById('adCategory');
+                select.innerHTML = '<option value="">Выберите категорию...</option>' +
+                    categories.map(cat => `<option value="${cat.id}">${cat.name}</option>`).join('');
+            } catch (err) {
+                console.error('Ошибка загрузки категорий:', err);
+            }
+        }
+
+        // Регистрация
+        async function register() {
+            const email = document.getElementById('regEmail').value;
+            const password = document.getElementById('regPassword').value;
+            const name = document.getElementById('regName').value;
+            const resultDiv = document.getElementById('regResult');
+            
+            try {
+                const res = await fetch(`${API_URL}/auth/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password, name })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    resultDiv.style.color = 'green';
+                    resultDiv.textContent = `Успешно! ID: ${data.user.id}`;
+                    document.getElementById('adUserId').value = data.user.id;
+                } else {
+                    resultDiv.textContent = `Ошибка: ${data.error}`;
+                }
+            } catch (err) {
+                resultDiv.textContent = `Ошибка: ${err.message}`;
+            }
+        }
+
+        // Создание объявления
+        async function createAd() {
+            const ad = {
+                user_id: document.getElementById('adUserId').value,
+                category_id: document.getElementById('adCategory').value,
+                title: document.getElementById('adTitle').value,
+                description: document.getElementById('adDescription').value,
+                price: document.getElementById('adPrice').value,
+                location: document.getElementById('adLocation').value
+            };
+            const resultDiv = document.getElementById('adResult');
+            
+            try {
+                const res = await fetch(`${API_URL}/ads`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(ad)
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    resultDiv.style.color = 'green';
+                    resultDiv.textContent = `Объявление создано! ID: ${data.ad.id}`;
+                    loadAds();
+                } else {
+                    resultDiv.textContent = `Ошибка: ${data.error}`;
+                }
+            } catch (err) {
+                resultDiv.textContent = `Ошибка: ${err.message}`;
+            }
+        }
+
+        // Загрузка объявлений
+        async function loadAds() {
+            try {
+                const res = await fetch(`${API_URL}/ads`);
+                const data = await res.json();
+                const container = document.getElementById('adsContainer');
+                container.innerHTML = data.ads.map(ad => `
+                    <div class="ad-card">
+                        <h3>${ad.title}</h3>
+                        <p>${ad.description}</p>
+                        <div class="ad-price">${ad.price ? ad.price + ' ₽' : 'Договорная'}</div>
+                        <p><small>📍 ${ad.location || 'Не указано'}</small></p>
+                        <p><small>👤 ${ad.user_name || 'Аноним'}</small></p>
+                        <p><small>📁 ${ad.category_name || 'Без категории'}</small></p>
+                        <p><small>👁️ ${ad.views} просмотров</small></p>
+                    </div>
+                `).join('');
+            } catch (err) {
+                console.error('Ошибка загрузки объявлений:', err);
+            }
+        }
+
+        // Инициализация
+        document.addEventListener('DOMContentLoaded', () => {
+            loadCategories();
+            loadAds();
+        });
+    </script>
+</body>
+</html>
