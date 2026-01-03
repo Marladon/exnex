@@ -4,7 +4,7 @@ const pool = new Pool({
   user: 'postgres',
   host: 'localhost',
   database: 'exnex_db',
-  password: 'ВАШ_ПАРОЛЬ',
+  password: 'postgres',
   port: 5432,
 });
 
