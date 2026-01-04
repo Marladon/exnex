@@ -154,27 +154,55 @@
 
         // Обновленная функция создания объявления
         async function createAd() {
+            console.log('=== СОЗДАНИЕ ОБЪЯВЛЕНИЯ С КАРТИНКАМИ ===');
+            
             const files = document.getElementById('adImages').files;
             const resultDiv = document.getElementById('adResult');
             
-            // Показываем загрузку
-            resultDiv.textContent = 'Загрузка изображений...';
+            resultDiv.textContent = 'Начинаем...';
             resultDiv.style.color = 'blue';
             
             try {
-                // 1. Загружаем изображения
-                const imagePaths = files.length > 0 ? await uploadImages(files) : [];
+                // 1. Загружаем картинки если есть
+                let imagePaths = [];
                 
-                // 2. Создаем объявление
+                if (files.length > 0) {
+                    resultDiv.textContent = 'Загрузка картинок...';
+                    console.log('Загружаю', files.length, 'картинок');
+                    
+                    const formData = new FormData();
+                    for (let file of files) {
+                        formData.append('images', file);
+                    }
+                    
+                    const uploadRes = await fetch(`${API_URL}/upload/multiple`, {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    if (!uploadRes.ok) {
+                        throw new Error('Не удалось загрузить картинки');
+                    }
+                    
+                    const uploadData = await uploadRes.json();
+                    console.log('Картинки загружены:', uploadData);
+                    imagePaths = uploadData.files.map(file => file.path);
+                }
+                
+                // 2. Создаем объявление с картинками
+                resultDiv.textContent = 'Создаем объявление...';
+                
                 const ad = {
-                    user_id: document.getElementById('adUserId').value,
-                    category_id: document.getElementById('adCategory').value,
+                    user_id: document.getElementById('adUserId').value || 1,
+                    category_id: document.getElementById('adCategory').value || 1,
                     title: document.getElementById('adTitle').value,
                     description: document.getElementById('adDescription').value,
-                    price: document.getElementById('adPrice').value,
+                    price: parseFloat(document.getElementById('adPrice').value) || 0,
                     location: document.getElementById('adLocation').value,
-                    images: imagePaths  // добавляем пути к изображениям
+                    images: imagePaths  // массив с путями к картинкам
                 };
+                
+                console.log('Отправляю объявление:', ad);
                 
                 const res = await fetch(`${API_URL}/ads`, {
                     method: 'POST',
@@ -185,7 +213,7 @@
                 const data = await res.json();
                 if (res.ok) {
                     resultDiv.style.color = 'green';
-                    resultDiv.textContent = `Объявление создано! ID: ${data.ad.id}`;
+                    resultDiv.textContent = `✅ Объявление создано! ID: ${data.ad.id}`;
                     
                     // Очистка формы
                     document.getElementById('adImages').value = '';
@@ -195,45 +223,18 @@
                     document.getElementById('adPrice').value = '';
                     document.getElementById('adLocation').value = '';
                     
-                    loadAds();  // Обновляем список
+                    // Обновляем список
+                    loadAds();
+                    
                 } else {
                     resultDiv.style.color = 'red';
-                    resultDiv.textContent = `Ошибка: ${data.error}`;
+                    resultDiv.textContent = `❌ Ошибка: ${data.error}`;
                 }
+                
             } catch (err) {
                 resultDiv.style.color = 'red';
-                resultDiv.textContent = `Ошибка: ${err.message}`;
-            }
-        }
-
-        // Создание объявления
-        async function createAd() {
-            const ad = {
-                user_id: document.getElementById('adUserId').value,
-                category_id: document.getElementById('adCategory').value,
-                title: document.getElementById('adTitle').value,
-                description: document.getElementById('adDescription').value,
-                price: document.getElementById('adPrice').value,
-                location: document.getElementById('adLocation').value
-            };
-            const resultDiv = document.getElementById('adResult');
-            
-            try {
-                const res = await fetch(`${API_URL}/ads`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(ad)
-                });
-                const data = await res.json();
-                if (res.ok) {
-                    resultDiv.style.color = 'green';
-                    resultDiv.textContent = `Объявление создано! ID: ${data.ad.id}`;
-                    loadAds();
-                } else {
-                    resultDiv.textContent = `Ошибка: ${data.error}`;
-                }
-            } catch (err) {
-                resultDiv.textContent = `Ошибка: ${err.message}`;
+                resultDiv.textContent = `❌ Ошибка: ${err.message}`;
+                console.error('Ошибка:', err);
             }
         }
 
