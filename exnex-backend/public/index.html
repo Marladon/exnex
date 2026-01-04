@@ -51,6 +51,8 @@
             <textarea id="adDescription" placeholder="Описание" rows="3"></textarea>
             <input type="number" id="adPrice" placeholder="Цена">
             <input type="text" id="adLocation" placeholder="Местоположение">
+            <input type="file" id="adImages" multiple accept="image/*">
+            <div id="imagePreview" style="margin: 10px 0;"></div>
             <button onclick="createAd()">Опубликовать</button>
             <div id="adResult" class="error"></div>
         </div>
@@ -107,6 +109,103 @@
             }
         }
 
+        // Предпросмотр изображений
+        document.getElementById('adImages').addEventListener('change', function(e) {
+            const preview = document.getElementById('imagePreview');
+            preview.innerHTML = '';
+            
+            const files = e.target.files;
+            for (let file of files) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = document.createElement('img');
+                    img.src = e.target.result;
+                    img.style.width = '100px';
+                    img.style.height = '100px';
+                    img.style.objectFit = 'cover';
+                    img.style.margin = '5px';
+                    img.style.borderRadius = '5px';
+                    preview.appendChild(img);
+                }
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Функция загрузки изображений на сервер
+        async function uploadImages(files) {
+            const formData = new FormData();
+            for (let file of files) {
+                formData.append('images', file);
+            }
+            
+            try {
+                const res = await fetch(`${API_URL}/upload/multiple`, {
+                    method: 'POST',
+                    body: formData
+                    // Не устанавливать Content-Type - браузер сам установит с boundary
+                });
+                const data = await res.json();
+                return data.files.map(file => file.path);
+            } catch (err) {
+                console.error('Ошибка загрузки изображений:', err);
+                return [];
+            }
+        }
+
+        // Обновленная функция создания объявления
+        async function createAd() {
+            const files = document.getElementById('adImages').files;
+            const resultDiv = document.getElementById('adResult');
+            
+            // Показываем загрузку
+            resultDiv.textContent = 'Загрузка изображений...';
+            resultDiv.style.color = 'blue';
+            
+            try {
+                // 1. Загружаем изображения
+                const imagePaths = files.length > 0 ? await uploadImages(files) : [];
+                
+                // 2. Создаем объявление
+                const ad = {
+                    user_id: document.getElementById('adUserId').value,
+                    category_id: document.getElementById('adCategory').value,
+                    title: document.getElementById('adTitle').value,
+                    description: document.getElementById('adDescription').value,
+                    price: document.getElementById('adPrice').value,
+                    location: document.getElementById('adLocation').value,
+                    images: imagePaths  // добавляем пути к изображениям
+                };
+                
+                const res = await fetch(`${API_URL}/ads`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(ad)
+                });
+                
+                const data = await res.json();
+                if (res.ok) {
+                    resultDiv.style.color = 'green';
+                    resultDiv.textContent = `Объявление создано! ID: ${data.ad.id}`;
+                    
+                    // Очистка формы
+                    document.getElementById('adImages').value = '';
+                    document.getElementById('imagePreview').innerHTML = '';
+                    document.getElementById('adTitle').value = '';
+                    document.getElementById('adDescription').value = '';
+                    document.getElementById('adPrice').value = '';
+                    document.getElementById('adLocation').value = '';
+                    
+                    loadAds();  // Обновляем список
+                } else {
+                    resultDiv.style.color = 'red';
+                    resultDiv.textContent = `Ошибка: ${data.error}`;
+                }
+            } catch (err) {
+                resultDiv.style.color = 'red';
+                resultDiv.textContent = `Ошибка: ${err.message}`;
+            }
+        }
+
         // Создание объявления
         async function createAd() {
             const ad = {
@@ -147,12 +246,10 @@
                 container.innerHTML = data.ads.map(ad => `
                     <div class="ad-card">
                         <h3>${ad.title}</h3>
+                       ${ad.images && ad.images.length > 0 ? 
+                        `<img src="${ad.images[0]}" style="width:100%; height:150px; object-fit:cover; border-radius:5px; margin:10px 0;">` 
+                        : ''}
                         <p>${ad.description}</p>
-                        <div class="ad-price">${ad.price ? ad.price + ' ₽' : 'Договорная'}</div>
-                        <p><small>📍 ${ad.location || 'Не указано'}</small></p>
-                        <p><small>👤 ${ad.user_name || 'Аноним'}</small></p>
-                        <p><small>📁 ${ad.category_name || 'Без категории'}</small></p>
-                        <p><small>👁️ ${ad.views} просмотров</small></p>
                     </div>
                 `).join('');
             } catch (err) {

@@ -3,6 +3,7 @@ const pool = require('./db');
 const authRoutes = require('./routes/auth');
 const adRoutes = require('./routes/ads');
 const categoryRoutes = require('./routes/categories');
+const uploadRoutes = require('./routes/upload');
 const app = express();
 const PORT = 3000;
 
@@ -10,6 +11,8 @@ app.use(express.json());
 app.use(express.static('public'));
 app.use('/api/ads', adRoutes);
 app.use('/api/categories', categoryRoutes);
+app.use('/api/upload', uploadRoutes);
+app.use('/uploads', express.static('uploads')); // доступ к файлам
 
 // Подключаем маршруты аутентификации
 app.use('/api/auth', authRoutes); 

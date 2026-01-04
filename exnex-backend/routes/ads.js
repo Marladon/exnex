@@ -35,7 +35,7 @@ router.get('/', async (req, res) => {
 // Создать объявление
 router.post('/', async (req, res) => {
   try {
-    const { user_id, category_id, title, description, price, location, images } = req.body;
+    const { user_id, category_id, title, description, price, location, images = [] } = req.body;
     
     const result = await pool.query(
       `INSERT INTO ads 
