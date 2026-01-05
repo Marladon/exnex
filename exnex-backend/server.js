@@ -4,6 +4,7 @@ const authRoutes = require('./routes/auth');
 const adRoutes = require('./routes/ads');
 const categoryRoutes = require('./routes/categories');
 const uploadRoutes = require('./routes/upload');
+const favoriteRoutes = require('./routes/favorites');
 const app = express();
 const PORT = 3000;
 
@@ -15,6 +16,7 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 app.use(express.static('public'));
+app.use('/api/favorites', favoriteRoutes);
 
 // Маршруты
 app.use('/api/auth', authRoutes);
