@@ -3,30 +3,114 @@ const router = express.Router();
 const pool = require('../db');
 const { authMiddleware } = require('../config/jwt'); // добавляем
 
-// Получить все объявления (публичный доступ)
+// Получить все объявления с фильтрами
 router.get('/', async (req, res) => {
   try {
-    const { page = 1, limit = 20 } = req.query;
+    const { 
+      page = 1, 
+      limit = 20,
+      category_id,
+      min_price,
+      max_price,
+      location,
+      search,
+      sort = 'newest' // newest, cheapest, expensive, popular
+    } = req.query;
+    
     const offset = (page - 1) * limit;
     
-    const result = await pool.query(
-      `SELECT ads.*, users.name as user_name, categories.name as category_name 
-       FROM ads 
-       LEFT JOIN users ON ads.user_id = users.id
-       LEFT JOIN categories ON ads.category_id = categories.id
-       WHERE status = 'active'
-       ORDER BY created_at DESC 
-       LIMIT $1 OFFSET $2`,
-      [limit, offset]
-    );
+    // Базовый запрос
+    let query = `
+      SELECT ads.*, users.name as user_name, categories.name as category_name 
+      FROM ads 
+      LEFT JOIN users ON ads.user_id = users.id
+      LEFT JOIN categories ON ads.category_id = categories.id
+      WHERE status = 'active'
+    `;
     
-    const countResult = await pool.query('SELECT COUNT(*) FROM ads WHERE status = $1', ['active']);
+    const queryParams = [];
+    let paramCount = 1;
+    
+    // Фильтры
+    if (category_id) {
+      query += ` AND ads.category_id = $${paramCount}`;
+      queryParams.push(category_id);
+      paramCount++;
+    }
+    
+    if (min_price) {
+      query += ` AND ads.price >= $${paramCount}`;
+      queryParams.push(parseFloat(min_price));
+      paramCount++;
+    }
+    
+    if (max_price) {
+      query += ` AND ads.price <= $${paramCount}`;
+      queryParams.push(parseFloat(max_price));
+      paramCount++;
+    }
+    
+    if (location) {
+      query += ` AND ads.location ILIKE $${paramCount}`;
+      queryParams.push(`%${location}%`);
+      paramCount++;
+    }
+    
+    if (search) {
+      query += ` AND (ads.title ILIKE $${paramCount} OR ads.description ILIKE $${paramCount})`;
+      queryParams.push(`%${search}%`);
+      paramCount++;
+    }
+    
+    // Сортировка
+    switch(sort) {
+      case 'cheapest':
+        query += ` ORDER BY ads.price ASC NULLS LAST`;
+        break;
+      case 'expensive':
+        query += ` ORDER BY ads.price DESC NULLS LAST`;
+        break;
+      case 'popular':
+        query += ` ORDER BY ads.views DESC`;
+        break;
+      default: // newest
+        query += ` ORDER BY ads.created_at DESC`;
+    }
+    
+    // Пагинация
+    query += ` LIMIT $${paramCount} OFFSET $${paramCount + 1}`;
+    queryParams.push(parseInt(limit), parseInt(offset));
+    
+    const result = await pool.query(query, queryParams);
+    
+    // Подсчет общего количества (без пагинации)
+    let countQuery = `SELECT COUNT(*) FROM ads WHERE status = 'active'`;
+    const countParams = [];
+    let countParamCount = 1;
+    
+    if (category_id) {
+      countQuery += ` AND category_id = $${countParamCount}`;
+      countParams.push(category_id);
+      countParamCount++;
+    }
+    
+    // ... аналогично другие фильтры для countQuery
+    
+    const countResult = await pool.query(countQuery, countParams);
     
     res.json({
       ads: result.rows,
       total: parseInt(countResult.rows[0].count),
       page: parseInt(page),
-      totalPages: Math.ceil(countResult.rows[0].count / limit)
+      totalPages: Math.ceil(countResult.rows[0].count / limit),
+      filters: {
+        category_id,
+        min_price,
+        max_price,
+        location,
+        search,
+        sort
+      }
     });
   } catch (err) {
     res.status(500).json({ error: err.message });

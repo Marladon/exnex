@@ -67,6 +67,28 @@
             <div id="adResult" class="error"></div>
         </div>
 
+        <!-- Поиск -->
+        <div class="section">
+            <h2>🔍 Поиск объявлений</h2>
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px;">
+                <input type="text" id="searchInput" placeholder="Поиск...">
+                <input type="number" id="minPrice" placeholder="Цена от">
+                <input type="number" id="maxPrice" placeholder="Цена до">
+                <input type="text" id="locationInput" placeholder="Город">
+                <select id="categoryFilter">
+                    <option value="">Все категории</option>
+                </select>
+                <select id="sortSelect">
+                    <option value="newest">Сначала новые</option>
+                    <option value="cheapest">Сначала дешевые</option>
+                    <option value="expensive">Сначала дорогие</option>
+                    <option value="popular">Популярные</option>
+                </select>
+                <button onclick="searchAds()">Искать</button>
+                <button onclick="resetSearch()" style="background: #6c757d;">Сбросить</button>
+            </div>
+        </div>
+
         <!-- Список объявлений -->
         <div class="section">
             <h2>📋 Все объявления</h2>
@@ -105,9 +127,17 @@
                 const res = await fetch(`${API_URL}/categories`);
                 const data = await res.json();
                 categories = data.categories;
+                 
+                // Для формы создания
                 const select = document.getElementById('adCategory');
                 select.innerHTML = '<option value="">Выберите категорию...</option>' +
                     categories.map(cat => `<option value="${cat.id}">${cat.name}</option>`).join('');
+
+                // Для фильтра поиска
+                const filterSelect = document.getElementById('categoryFilter');
+                filterSelect.innerHTML = '<option value="">Все категории</option>' +
+                    categories.map(cat => `<option value="${cat.id}">${cat.name}</option>`).join('');
+                
             } catch (err) {
                 console.error('Ошибка загрузки категорий:', err);
             }
@@ -338,23 +368,75 @@
         }
 
         // Загрузка объявлений
-        async function loadAds() {
+        async function loadAds(filters = {}) {
             try {
-                const res = await fetch(`${API_URL}/ads`);
+                // Собираем параметры запроса
+                const params = new URLSearchParams();
+                
+                if (filters.search) params.append('search', filters.search);
+                if (filters.min_price) params.append('min_price', filters.min_price);
+                if (filters.max_price) params.append('max_price', filters.max_price);
+                if (filters.location) params.append('location', filters.location);
+                if (filters.category_id) params.append('category_id', filters.category_id);
+                if (filters.sort) params.append('sort', filters.sort);
+                
+                const url = `${API_URL}/ads${params.toString() ? '?' + params.toString() : ''}`;
+                console.log('Загружаю объявления:', url);
+                
+                const res = await fetch(url);
                 const data = await res.json();
+                
                 const container = document.getElementById('adsContainer');
+                if (data.ads.length === 0) {
+                    container.innerHTML = '<p style="text-align: center; color: #666;">Объявления не найдены</p>';
+                    return;
+                }
+                
                 container.innerHTML = data.ads.map(ad => `
                     <div class="ad-card">
                         <h3>${ad.title}</h3>
-                       ${ad.images && ad.images.length > 0 ? 
+                        ${ad.images && ad.images.length > 0 ? 
                         `<img src="${ad.images[0]}" style="width:100%; height:150px; object-fit:cover; border-radius:5px; margin:10px 0;">` 
                         : ''}
-                        <p>${ad.description}</p>
+                        <p>${ad.description.substring(0, 100)}${ad.description.length > 100 ? '...' : ''}</p>
+                        <div class="ad-price">${ad.price ? ad.price + ' ₽' : 'Договорная'}</div>
+                        <p><small>📍 ${ad.location || 'Не указано'}</small></p>
+                        <p><small>👤 ${ad.user_name || 'Аноним'}</small></p>
+                        <p><small>📁 ${ad.category_name || 'Без категории'}</small></p>
+                        <p><small>👁️ ${ad.views} просмотров</small></p>
+                        <p><small>📅 ${new Date(ad.created_at).toLocaleDateString()}</small></p>
                     </div>
                 `).join('');
+                
             } catch (err) {
                 console.error('Ошибка загрузки объявлений:', err);
+                document.getElementById('adsContainer').innerHTML = 
+                    '<p style="color: red;">Ошибка загрузки объявлений</p>';
             }
+        }
+
+        function searchAds() {
+            const filters = {
+                search: document.getElementById('searchInput').value,
+                min_price: document.getElementById('minPrice').value,
+                max_price: document.getElementById('maxPrice').value,
+                location: document.getElementById('locationInput').value,
+                category_id: document.getElementById('categoryFilter').value,
+                sort: document.getElementById('sortSelect').value
+            };
+            
+            loadAds(filters);
+        }
+
+        function resetSearch() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('minPrice').value = '';
+            document.getElementById('maxPrice').value = '';
+            document.getElementById('locationInput').value = '';
+            document.getElementById('categoryFilter').value = '';
+            document.getElementById('sortSelect').value = 'newest';
+            
+            loadAds(); // загружаем без фильтров
         }
 
         // Инициализация
