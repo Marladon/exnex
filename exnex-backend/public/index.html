@@ -371,8 +371,9 @@
 
         // Загрузка объявлений
         async function loadAds(filters = {}) {
+            currentView = 'all';
             try {
-                // Собираем параметры запроса
+                // Создаем строку запроса с фильтрами
                 const params = new URLSearchParams();
                 
                 if (filters.search) params.append('search', filters.search);
@@ -382,15 +383,41 @@
                 if (filters.category_id) params.append('category_id', filters.category_id);
                 if (filters.sort) params.append('sort', filters.sort);
                 
-                const url = `${API_URL}/ads${params.toString() ? '?' + params.toString() : ''}`;
-                console.log('Загружаю объявления:', url);
+                const queryString = params.toString();
+                const url = queryString ? `${API_URL}/ads?${queryString}` : `${API_URL}/ads`;
+                
+                console.log('Загружаю объявления по адресу:', url);
                 
                 const res = await fetch(url);
                 const data = await res.json();
                 
+                if (!res.ok) {
+                    throw new Error(data.error || 'Ошибка загрузки объявлений');
+                }
+                
                 const container = document.getElementById('adsContainer');
-                if (data.ads.length === 0) {
-                    container.innerHTML = '<p style="text-align: center; color: #666;">Объявления не найдены</p>';
+                
+                // Загружаем состояние избранного если пользователь авторизован
+                let favoritesMap = {};
+                if (authToken) {
+                    try {
+                        const favRes = await fetch(`${API_URL}/favorites`, {
+                            headers: { 'Authorization': `Bearer ${authToken}` }
+                        });
+                        if (favRes.ok) {
+                            const favData = await favRes.json();
+                            // Создаем карту {adId: true} для быстрой проверки
+                            favData.favorites?.forEach(fav => {
+                                favoritesMap[fav.id] = true;
+                            });
+                        }
+                    } catch (err) {
+                        console.log('Не удалось загрузить избранное:', err);
+                    }
+                }
+                
+                if (!data.ads || data.ads.length === 0) {
+                    container.innerHTML = '<p>Объявлений не найдено</p>';
                     return;
                 }
                 
@@ -400,26 +427,28 @@
                             <h3>${ad.title}</h3>
                             <button onclick="toggleFavorite(${ad.id})" 
                                     id="fav-btn-${ad.id}" 
-                                    style="background: none; border: none; font-size: 1.5em; cursor: pointer; color: gray;">
-                                ♡
+                                    style="background: none; border: none; font-size: 1.5em; cursor: pointer; 
+                                        color: ${favoritesMap[ad.id] ? 'red' : 'gray'}">
+                                ${favoritesMap[ad.id] ? '♥' : '♡'}
                             </button>
                         </div>
                         ${ad.images && ad.images.length > 0 ? 
                         `<img src="${ad.images[0]}" style="width:100%; height:150px; object-fit:cover; border-radius:5px; margin:10px 0;">` 
                         : ''}
-                        <p>${ad.description}</p>
+                        <p>${ad.description.substring(0, 100)}${ad.description.length > 100 ? '...' : ''}</p>
                         <div class="ad-price">${ad.price ? ad.price + ' ₽' : 'Договорная'}</div>
                         <p><small>📍 ${ad.location || 'Не указано'}</small></p>
                         <p><small>👤 ${ad.user_name || 'Аноним'}</small></p>
                         <p><small>📁 ${ad.category_name || 'Без категории'}</small></p>
                         <p><small>👁️ ${ad.views} просмотров</small></p>
+                        <p><small>📅 ${new Date(ad.created_at).toLocaleDateString()}</small></p>
                     </div>
                 `).join('');
                 
             } catch (err) {
                 console.error('Ошибка загрузки объявлений:', err);
-                document.getElementById('adsContainer').innerHTML = 
-                    '<p style="color: red;">Ошибка загрузки объявлений</p>';
+                const container = document.getElementById('adsContainer');
+                container.innerHTML = `<p style="color: red;">Ошибка загрузки: ${err.message}</p>`;
             }
         }
 
@@ -470,7 +499,6 @@
             const button = document.getElementById(`fav-btn-${adId}`);
             
             try {
-                // Проверяем текущий статус
                 const checkRes = await fetch(`${API_URL}/favorites/check/${adId}`, {
                     headers: { 'Authorization': `Bearer ${authToken}` }
                 });
@@ -483,8 +511,14 @@
                         headers: { 'Authorization': `Bearer ${authToken}` }
                     });
                     if (res.ok) {
-                        button.innerHTML = '♡';
-                        button.style.color = 'gray';
+                        if (button) {
+                            button.innerHTML = '♡';
+                            button.style.color = 'gray';
+                        }
+                        // Если мы в режиме избранного - обновляем список
+                        if (currentView === 'favorites') {
+                            setTimeout(() => loadFavorites(), 100);
+                        }
                     }
                 } else {
                     // Добавляем
@@ -493,17 +527,19 @@
                         headers: { 'Authorization': `Bearer ${authToken}` }
                     });
                     if (res.ok) {
-                        button.innerHTML = '♥';
-                        button.style.color = 'red';
+                        if (button) {
+                            button.innerHTML = '♥';
+                            button.style.color = 'red';
+                        }
                     }
                 }
             } catch (err) {
                 console.error('Ошибка избранного:', err);
             }
         }
-
         // Загрузка избранного
         async function loadFavorites() {
+            currentView = 'favorites';
             if (!authToken) {
                 alert('Войдите в систему чтобы просмотреть избранное');
                 return;
