@@ -3,11 +3,21 @@ const router = express.Router();
 const pool = require('../db');
 const bcrypt = require('bcrypt');
 const { generateToken } = require('../config/jwt');
+const { validateEmail, validatePassword } = require('../utils/validators');
 
 // Регистрация с хешированием пароля
 router.post('/register', async (req, res) => {
   try {
     const { email, password, name, phone } = req.body;
+
+    // Валидация
+    if (!validateEmail(email)) {
+      return res.status(400).json({ error: 'Некорректный email' });
+    }
+    
+    if (!validatePassword(password)) {
+      return res.status(400).json({ error: 'Пароль должен быть не менее 6 символов' });
+    }
     
     // Проверка обязательных полей
     if (!email || !password) {
