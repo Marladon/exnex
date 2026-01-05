@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../db');
 const bcrypt = require('bcrypt');
+const { generateToken } = require('../config/jwt');
 
 // Регистрация с хешированием пароля
 router.post('/register', async (req, res) => {
@@ -23,8 +24,12 @@ router.post('/register', async (req, res) => {
       [email, passwordHash, name || null, phone || null]
     );
     
+    // Автоматический вход после регистрации
+    const token = generateToken(result.rows[0].id);
+    
     res.status(201).json({ 
       user: result.rows[0],
+      token: token,
       message: 'Регистрация успешна'
     });
     
@@ -65,6 +70,9 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Неверный email или пароль' });
     }
     
+    // Генерируем токен
+    const token = generateToken(user.id);
+    
     // Успешный вход - возвращаем данные без пароля
     res.json({ 
       user: {
@@ -72,12 +80,18 @@ router.post('/login', async (req, res) => {
         email: user.email,
         name: user.name,
         phone: user.phone
-      }
+      },
+      token: token
     });
     
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// Выход (клиентская сторона просто удаляет токен)
+router.post('/logout', (req, res) => {
+  res.json({ message: 'Выход успешен' });
 });
 
 module.exports = router;

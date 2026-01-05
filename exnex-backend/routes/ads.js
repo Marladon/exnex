@@ -1,8 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../db');
+const { authMiddleware } = require('../config/jwt'); // добавляем
 
-// Получить все объявления (с пагинацией)
+// Получить все объявления (публичный доступ)
 router.get('/', async (req, res) => {
   try {
     const { page = 1, limit = 20 } = req.query;
@@ -32,17 +33,22 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Создать объявление
-router.post('/', async (req, res) => {
+// Создать объявление (ТРЕБУЕТ АВТОРИЗАЦИИ)
+router.post('/', authMiddleware, async (req, res) => {
   try {
-    const { user_id, category_id, title, description, price, location, images = [] } = req.body;
+    const { category_id, title, description, price, location, images } = req.body;
+    const user_id = req.userId; // берем из токена
+    
+    if (!title || !description) {
+      return res.status(400).json({ error: 'Заголовок и описание обязательны' });
+    }
     
     const result = await pool.query(
       `INSERT INTO ads 
        (user_id, category_id, title, description, price, location, images) 
        VALUES ($1, $2, $3, $4, $5, $6, $7) 
        RETURNING *`,
-      [user_id, category_id, title, description, price, location, images || []]
+      [user_id, category_id || null, title, description, price || null, location || null, images || []]
     );
     
     res.status(201).json({ ad: result.rows[0] });
@@ -51,7 +57,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Получить одно объявление
+// Получить одно объявление (публичный доступ)
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -74,6 +80,34 @@ router.get('/:id', async (req, res) => {
     }
     
     res.json({ ad: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Удалить объявление (ТОЛЬКО ВЛАДЕЛЕЦ)
+router.delete('/:id', authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user_id = req.userId;
+    
+    // Проверяем владельца
+    const checkResult = await pool.query(
+      'SELECT user_id FROM ads WHERE id = $1',
+      [id]
+    );
+    
+    if (checkResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Объявление не найдено' });
+    }
+    
+    if (checkResult.rows[0].user_id !== user_id) {
+      return res.status(403).json({ error: 'Нет прав для удаления' });
+    }
+    
+    await pool.query('DELETE FROM ads WHERE id = $1', [id]);
+    
+    res.json({ message: 'Объявление удалено' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
