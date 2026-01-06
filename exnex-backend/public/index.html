@@ -89,6 +89,43 @@
             </div>
         </div>
 
+        <!-- После блока избранного добавьте: -->
+        <div class="section">
+            <h2>💬 Сообщения</h2>
+            
+            <!-- Список диалогов -->
+            <div id="conversationsList" style="margin-bottom: 20px;">
+                <button onclick="loadConversations()">📨 Мои диалоги</button>
+                <div id="conversationsContainer" style="margin-top: 10px;"></div>
+            </div>
+            
+            <!-- Выбранный диалог -->
+            <div id="chatContainer" style="display: none;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h3 id="chatWithUser">Диалог с...</h3>
+                    <button onclick="closeChat()" style="background: #dc3545;">✖ Закрыть</button>
+                </div>
+                
+                <!-- История сообщений -->
+                <div id="messagesContainer" style="
+                    height: 300px; 
+                    overflow-y: auto; 
+                    border: 1px solid #ddd; 
+                    padding: 10px; 
+                    margin: 10px 0;
+                    background: #f9f9f9;
+                "></div>
+                
+                <!-- Форма отправки -->
+                <div style="display: flex;">
+                    <input type="text" id="messageInput" placeholder="Введите сообщение..." style="flex: 1;">
+                    <button onclick="sendMessage()" style="margin-left: 10px;">Отправить</button>
+                </div>
+            </div>
+            
+            <!-- Кнопка "Написать продавцу" в карточке объявления (добавить позже) -->
+        </div>
+
         <!-- Список объявлений -->
         <div class="section">
             <h2>📋 Все объявления</h2>
@@ -105,6 +142,17 @@
         let authToken = localStorage.getItem('token') || null;
         let currentUser = null;
 
+        // Функция добавлена для безопасности
+        function escapeHtml(text) {
+            if (!text) return '';
+            return text
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+                
         // Функция для сохранения/удаления токена
         function setAuthToken(token, user = null) {
             authToken = token;
@@ -439,6 +487,11 @@
                         <div class="ad-price">${ad.price ? ad.price + ' ₽' : 'Договорная'}</div>
                         <p><small>📍 ${ad.location || 'Не указано'}</small></p>
                         <p><small>👤 ${ad.user_name || 'Аноним'}</small></p>
+                        ${currentUser && currentUser.id && ad.user_id && currentUser.id !== ad.user_id ? 
+                        `<button onclick="startChat(${ad.user_id}, '${escapeHtml(ad.user_name)}', ${ad.id}, '${escapeHtml(ad.title)}')" 
+                                style="background: #28a745; color: white; border: none; padding: 5px 10px; border-radius: 4px; margin-top: 5px; cursor: pointer; font-size: 0.9em;">
+                            💬 Написать продавцу
+                        </button>` : ''}
                         <p><small>📁 ${ad.category_name || 'Без категории'}</small></p>
                         <p><small>👁️ ${ad.views} просмотров</small></p>
                         <p><small>📅 ${new Date(ad.created_at).toLocaleDateString()}</small></p>
@@ -577,6 +630,212 @@
                 console.error('Ошибка загрузки избранного:', err);
             }
         }
+
+        // ========== ФУНКЦИИ ДЛЯ СООБЩЕНИЙ ==========
+        let currentChatUserId = null;
+
+        // Загрузить диалоги
+        async function loadConversations() {
+            if (!authToken) {
+                alert('Войдите в систему чтобы просмотреть сообщения');
+                return;
+            }
+            
+            try {
+                const res = await fetch(`${API_URL}/messages/conversations`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                
+                const data = await res.json();
+                const container = document.getElementById('conversationsContainer');
+                
+                if (!data.conversations || data.conversations.length === 0) {
+                    container.innerHTML = '<p>У вас пока нет диалогов</p>';
+                    return;
+                }
+                
+                container.innerHTML = data.conversations.map(conv => {
+                    const otherUserId = conv.sender_id === currentUser.id ? conv.receiver_id : conv.sender_id;
+                    return `
+                        <div style="
+                            padding: 10px; 
+                            border: 1px solid #ddd; 
+                            margin: 5px 0; 
+                            cursor: pointer;
+                            border-radius: 5px;
+                            background: ${conv.unread_count > 0 ? '#e8f4fd' : 'white'};
+                        " onclick="openChat(${otherUserId}, '${escapeHtml(conv.other_user_name)}')">
+                            <strong>${escapeHtml(conv.other_user_name)}</strong>
+                            <p style="color: #666; font-size: 0.9em; margin: 5px 0;">
+                                ${escapeHtml(conv.text.length > 50 ? conv.text.substring(0, 50) + '...' : conv.text)}
+                            </p>
+                            <div style="display: flex; justify-content: space-between; font-size: 0.8em; color: #888;">
+                                <span>${new Date(conv.created_at).toLocaleDateString()}</span>
+                                ${conv.unread_count > 0 ? 
+                                `<span style="background: #dc3545; color: white; padding: 2px 6px; border-radius: 10px;">
+                                    ${conv.unread_count}
+                                </span>` : ''}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+                
+            } catch (err) {
+                console.error('Ошибка загрузки диалогов:', err);
+                document.getElementById('conversationsContainer').innerHTML = 
+                    '<p style="color: red;">Ошибка загрузки диалогов</p>';
+            }
+        }
+
+        // Открыть чат с пользователем
+        async function openChat(userId, userName) {
+            if (!authToken) {
+                alert('Войдите в систему чтобы написать сообщение');
+                return;
+            }
+            
+            currentChatUserId = userId;
+            document.getElementById('chatWithUser').textContent = `Диалог с ${userName}`;
+            document.getElementById('chatContainer').style.display = 'block';
+            document.getElementById('conversationsList').style.display = 'none';
+            
+            await loadMessages(userId);
+            
+            // Автоскролл вниз
+            setTimeout(() => {
+                const container = document.getElementById('messagesContainer');
+                if (container) container.scrollTop = container.scrollHeight;
+            }, 100);
+        }
+
+        // Закрыть чат
+        function closeChat() {
+            document.getElementById('chatContainer').style.display = 'none';
+            document.getElementById('conversationsList').style.display = 'block';
+            currentChatUserId = null;
+        }
+
+        // Загрузить сообщения
+        async function loadMessages(userId) {
+            try {
+                const res = await fetch(`${API_URL}/messages/conversation/${userId}`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                
+                const data = await res.json();
+                const container = document.getElementById('messagesContainer');
+                
+                if (!data.messages || data.messages.length === 0) {
+                    container.innerHTML = '<p style="text-align: center; color: #666;">Нет сообщений</p>';
+                    return;
+                }
+                
+                container.innerHTML = data.messages.map(msg => `
+                    <div style="
+                        margin: 10px 0;
+                        text-align: ${msg.sender_id === currentUser.id ? 'right' : 'left'};
+                    ">
+                        <div style="
+                            display: inline-block;
+                            max-width: 70%;
+                            padding: 8px 12px;
+                            border-radius: 15px;
+                            background: ${msg.sender_id === currentUser.id ? '#007bff' : '#e9ecef'};
+                            color: ${msg.sender_id === currentUser.id ? 'white' : 'black'};
+                            text-align: left;
+                        ">
+                            <div style="font-size: 0.9em; margin-bottom: 5px;">
+                                <strong>${escapeHtml(msg.sender_name)}</strong>
+                                ${msg.ad_title ? `<br><small>Объявление: ${escapeHtml(msg.ad_title)}</small>` : ''}
+                            </div>
+                            <div>${escapeHtml(msg.text)}</div>
+                            <div style="font-size: 0.7em; opacity: 0.7; margin-top: 5px;">
+                                ${new Date(msg.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                ${msg.is_read && msg.sender_id === currentUser.id ? ' ✓✓' : ''}
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+                
+                // Автоскролл вниз
+                container.scrollTop = container.scrollHeight;
+                
+            } catch (err) {
+                console.error('Ошибка загрузки сообщений:', err);
+                document.getElementById('messagesContainer').innerHTML = 
+                    '<p style="color: red;">Ошибка загрузки сообщений</p>';
+            }
+        }
+
+        // Отправить сообщение
+        async function sendMessage() {
+            if (!currentChatUserId) {
+                alert('Выберите диалог');
+                return;
+            }
+            
+            const input = document.getElementById('messageInput');
+            const text = input.value.trim();
+            
+            if (!text) {
+                alert('Введите текст сообщения');
+                return;
+            }
+            
+            try {
+                const res = await fetch(`${API_URL}/messages`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({
+                        receiver_id: currentChatUserId,
+                        text: text
+                    })
+                });
+                
+                if (res.ok) {
+                    input.value = '';
+                    await loadMessages(currentChatUserId);
+                } else {
+                    const data = await res.json();
+                    alert('Ошибка: ' + data.error);
+                }
+            } catch (err) {
+                console.error('Ошибка отправки сообщения:', err);
+                alert('Ошибка отправки сообщения');
+            }
+        }
+
+        // Начать диалог с продавцом
+        async function startChat(userId, userName, adId = null, adTitle = null) {
+            if (!authToken) {
+                alert('Войдите в систему чтобы написать сообщение');
+                return;
+            }
+            
+            currentChatUserId = userId;
+            document.getElementById('chatWithUser').textContent = `Диалог с ${userName}`;
+            document.getElementById('chatContainer').style.display = 'block';
+            document.getElementById('conversationsList').style.display = 'none';
+            
+            // Если есть объявление - добавляем в первое сообщение
+            if (adId && adTitle) {
+                document.getElementById('messageInput').value = `Здравствуйте! Интересуюсь вашим объявлением "${adTitle}"`;
+            }
+            
+            await loadMessages(userId);
+        }
+
+        // Обработка Enter для отправки сообщения
+        document.getElementById('messageInput')?.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        // ========== КОНЕЦ ФУНКЦИЙ ДЛЯ СООБЩЕНИЙ ==========
     </script>
 </body>
 </html>
