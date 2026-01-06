@@ -55,6 +55,7 @@ const pool = new Pool({
 npm install
 npm install express pg
 npm install bcrypt jsonwebtoken multer
+npm install socket.io
 ```
 - Инициализация базы данных
 ```bash
@@ -67,23 +68,23 @@ npm install bcrypt jsonwebtoken multer
 ## API Endpoints
 
 ### Аутентификация
-```POST /api/auth/register``` - Регистрация
-```POST /api/auth/login``` - Вход
+- ```POST /api/auth/register``` - Регистрация
+- ```POST /api/auth/login``` - Вход
 
 ### Объявления
-```GET /api/ads``` - Список объявлений
-```POST /api/ads``` - Создание объявления
-```GET /api/ads/:id``` - Получение объявления
+- ```GET /api/ads``` - Список объявлений
+- ```POST /api/ads``` - Создание объявления
+- ```GET /api/ads/:id``` - Получение объявления
 
 ### Категории
-```GET /api/categories``` - Все категории
-```GET /api/categories/tree``` - Иерархия категорий
+- ```GET /api/categories``` - Все категории
+- ```GET /api/categories/tree``` - Иерархия категорий
 
 ### Избранное
-```POST /api/favorites/:ad_id``` - Добавить в избранное
-```DELETE /api/favorites/:ad_id``` - Удалить из избранного
-```GET /api/favorites``` - Получить избранное пользователя
-```GET /api/favorites/check/:ad_id``` - Проверить статус
+- ```POST /api/favorites/:ad_id``` - Добавить в избранное
+- ```DELETE /api/favorites/:ad_id``` - Удалить из избранного
+- ```GET /api/favorites``` - Получить избранное пользователя
+- ```GET /api/favorites/check/:ad_id``` - Проверить статус
 
 ### Веб-интерфейс
 После запуска откройте http://localhost:3000
