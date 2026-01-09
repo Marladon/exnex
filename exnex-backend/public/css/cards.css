@@ -1,0 +1,254 @@
+/* ===== ADS GRID ===== */
+.ads-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 24px;
+  margin: 24px 0;
+}
+
+/* Ad Card */
+.ad-card {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  transition: all 0.3s ease;
+  position: relative;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.ad-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-hover);
+  border-color: var(--primary-light);
+}
+
+.ad-image {
+  position: relative;
+  height: 200px;
+  overflow: hidden;
+}
+
+.ad-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s;
+}
+
+.ad-card:hover .ad-image img {
+  transform: scale(1.05);
+}
+
+.ad-badge {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: var(--secondary);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.ad-content {
+  padding: 16px;
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.ad-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--text);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ad-description {
+  color: var(--text-light);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  margin-bottom: 12px;
+  flex-grow: 1;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ad-price {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--text);
+  margin: 8px 0;
+}
+
+.ad-price::after {
+  content: " ₽";
+}
+
+.ad-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-light);
+  font-size: 0.85rem;
+  color: var(--text-lighter);
+}
+
+.ad-location {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ad-views {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ad-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 16px;
+  gap: 8px;
+}
+
+.favorite-btn {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 4px;
+  color: #ccc;
+  transition: color 0.2s;
+  line-height: 1;
+}
+
+.favorite-btn.active {
+  color: var(--error);
+}
+
+.favorite-btn:hover {
+  color: var(--error);
+  transform: scale(1.1);
+}
+
+.chat-btn {
+  flex-grow: 1;
+}
+
+/* Empty state */
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-light);
+}
+
+.empty-state-icon {
+  font-size: 4rem;
+  margin-bottom: 20px;
+  opacity: 0.3;
+}
+
+/* Filters */
+.filters-sidebar {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 24px;
+  border: 1px solid var(--border);
+}
+
+.filter-group {
+  margin-bottom: 24px;
+}
+
+.filter-group:last-child {
+  margin-bottom: 0;
+}
+
+.filter-title {
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.filter-reset {
+  font-size: 0.875rem;
+  color: var(--accent);
+  cursor: pointer;
+  background: none;
+  border: none;
+}
+
+.filter-reset:hover {
+  text-decoration: underline;
+}
+
+.filter-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.filter-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.filter-option input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+}
+
+.filter-option label {
+  cursor: pointer;
+  user-select: none;
+}
+
+/* Price range */
+.price-inputs {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.price-input {
+  flex: 1;
+}
+
+@media (max-width: 768px) {
+  .ads-grid {
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 16px;
+  }
+  
+  .ad-image {
+    height: 180px;
+  }
+}
+
+@media (max-width: 576px) {
+  .ads-grid {
+    grid-template-columns: 1fr;
+  }
+}
